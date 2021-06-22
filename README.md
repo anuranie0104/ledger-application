@@ -12,7 +12,7 @@ Ledger application offers a quick way to see the ledger details of a given lease
 
 **Note:** Incase the application does not run even after the dependency installation in *Step 3*, ensure [nodemon](https://www.npmjs.com/package/nodemon/v/2.0.7) is installed by running `npm i -g nodemon`
 
-*Further documentation is available in the [docs](docs/index.html) folder*
+*Further documentation is available [here](https://anuranie0104.github.io/ledger-application/)*
 
 ## ✒️ Run unit and integration tests
 
