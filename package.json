@@ -1,0 +1,27 @@
+{
+  "name": "ledger-application",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "doc": "jsdoc -c jsdoc.json",
+    "start": "nodemon server.js",
+    "test": "mocha"
+  },
+  "author": "Anuranie Samath-Hettiarachchi",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "express-validator": "^6.12.0",
+    "request": "^2.88.2"
+  },
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "chai-http": "^4.3.0",
+    "chai-like": "^1.1.1",
+    "chai-things": "^0.2.0",
+    "jsdoc": "^3.6.7",
+    "mocha": "^9.0.1",
+    "nodemon": "^2.0.7"
+  }
+}

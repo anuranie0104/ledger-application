@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: controllers/ledgerController.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: controllers/ledgerController.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const { validationResult } = require('express-validator');
+
+/**
+ *  Function that calculates ledger for a weekly or fortnightly frequency
+ * 
+ * @param   {string} startDateISO   Start date in ISO string format.
+ * @param   {string} endDateISO     End date in ISO string format.
+ * @param   {string} frequency      Frequency of payment calculation.
+ * @param   {number} weeklyRent     Weekly amount to be paid.
+ * @returns {Object[]}  Returns an array of ledger objects which includes 'start_date', 'end_date' and 'amount'.
+ */
+const ledgerWeeklyCalculation = (startDateISO, endDateISO, frequency, weeklyRent) => {
+  // Converts dates into Date format.
+  let rentDate = new Date(startDateISO);
+  const endDate = new Date(endDateISO);
+
+  const numberOfDays = frequency === 'weekly' ? 7 : 14; // Weekly = 7, fortnightly = 14.
+  const ledger = [];
+
+  while (rentDate &lt;= endDate) { // Runs while loop as long as rentDate is less than endDate.
+    const startDate = rentDate.toISOString(); // Sets line startDate in ISO string format so it does not change with changes to rentDate.
+
+    // Following lines calculate the difference in days between rentDate and endDate.
+    const timeDifference = Math.abs(rentDate - endDate);
+    const DayDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
+
+    if (DayDifference &lt; numberOfDays) { // When difference of days falls short of frequency.
+      const amount = weeklyRent / 7 * (DayDifference + 1); // Rent calculation for remaining days.
+      ledger.push({
+        start_date: startDate,
+        end_date: endDate.toISOString(),
+        amount: Math.round((amount + Number.EPSILON) * 100) / 100 // Rounds off calculation to 2 decimals.
+      });
+      rentDate = new Date(endDate);
+    } else {
+      rentDate.setDate(rentDate.getDate() + (numberOfDays - 1)); // Sets rentDate to the end date based on frequency.
+      ledger.push({
+        start_date: startDate,
+        end_date: rentDate.toISOString(),
+        amount: frequency === 'weekly' ? weeklyRent : weeklyRent * 2 // Rent calculation based on frequency.
+      });
+
+      if (rentDate.valueOf() === endDate.valueOf()) { // Instance where rentDate and endDate are equal 
+        rentDate = new Date(endDate);
+      }
+    }
+    rentDate.setDate(rentDate.getDate() + 1); // Adds a day to rentDate to configure new startDate.
+  }
+  return ledger;
+};
+
+/**
+ * Function that calculates ledger for a monthly frequency
+ * 
+ * @param   {string} startDateISO   Start date in ISO string format.
+ * @param   {string} endDateISO     End date in ISO string format.
+ * @param   {number} weeklyRent     Weekly amount to be paid.
+ * @returns {Object[]}  Returns an array of ledger objects which includes 'start_date', 'end_date' and 'amount'. 
+ */
+const ledgerMonthlyCalculation = (startDateISO, endDateISO, weeklyRent) => {
+  // Converts dates into Date format.
+  let rentDate = new Date(startDateISO);
+  const endDate = new Date(endDateISO);
+
+  const date = JSON.parse(JSON.stringify(rentDate.getDate())); // Sets date of the month to constant value.
+  const ledger = [];
+
+  while (rentDate &lt;= endDate) { // Runs while loop as long as rentDate is less than endDate.
+    const startDate = rentDate.toISOString(); // Sets line startDate in ISO string format so it does not change with changes to rentDate.
+
+    // Sets the year, month, hours, minutes, seconds and milliseconds for further usage.
+    const year = rentDate.getFullYear();
+    let month = rentDate.getMonth();
+    const hours = rentDate.getHours();
+    const minutes = rentDate.getMinutes();
+    const seconds = rentDate.getSeconds();
+    const milliseconds = rentDate.getMilliseconds();
+
+    month = month + 1; // Calculates the next month index.
+    rentDate = new Date(year, month, date, hours, minutes, seconds, milliseconds); // Sets new rentDate using params.
+
+    // Checks if new rentDate date of the month is not equal to 'date' variable.
+    //   Eg: date = 31, but month only has 28 or 29 or 30 days.
+    if (rentDate.getDate() !== date) {
+      if (month === 1) { // If month is February (index = 1).
+        const isLeap = new Date(year, 1, 29).getDate() === 29; // Checks if leap year.
+        const febDate = isLeap ? 29 : 28; // Sets February date based on leap year or not.
+        rentDate = new Date(year, month, febDate, hours, minutes, seconds, milliseconds); // Sets rentDate based on altered date parameter.
+      } else {
+        rentDate = new Date(year, month, date - 1, hours, minutes, seconds, milliseconds); // Sets rentDate based on altered date parameter.
+      }
+    }
+
+    if (rentDate > endDate) { // When the remaining days are less than a month.
+      // Following lines calculate the difference in days between rentDate and endDate.
+      const timeDifference = Math.abs(new Date(startDate) - endDate);
+      const DayDifference = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
+
+      const amount = weeklyRent / 7 * (DayDifference + 1); // Rent calculation for remaining days.
+      ledger.push({
+        start_date: startDate,
+        end_date: endDate.toISOString(),
+        amount: Math.round((amount + Number.EPSILON) * 100) / 100 // Rounds off calculation to 2 decimals.
+      });
+      rentDate = new Date(endDate);
+    } else {
+      const amount = (weeklyRent / 7) * 365 / 12; // Rent calculation for a month.
+      ledger.push({
+        start_date: startDate,
+        end_date: rentDate.toISOString(),
+        amount: Math.round((amount + Number.EPSILON) * 100) / 100 // Rounds off calculation to 2 decimals.
+      });
+
+      if (rentDate.valueOf() === endDate.valueOf()) { // Instance where rentDate and endDate are equal 
+        rentDate = new Date(endDate);
+      }
+    }
+    rentDate.setDate(rentDate.getDate() + 1); // Adds a day to rentDate to end while loop.
+  }
+  return ledger;
+};
+
+
+/**
+ * fetchLedger request function
+ * 
+ * @param {Object} req Http request object.
+ * @param {Object} res Http response object.
+ */
+const fetchLedger = (req, res) => {
+  const errors = validationResult(req); // Finds the validation errors in this request and wraps them in an object.
+  if (!errors.isEmpty()) {
+    res.status(422).json({ errors: errors.array() }); // Returns error code with error message.
+    return;
+  }
+
+  const { start_date, end_date, frequency, weekly_rent, timezone } = req.body // Sets input parameters.
+
+  if (start_date > end_date) { // Checks if start_date is after end_date.
+    res.status(422).json({ // Returns error message.
+      errors: [{
+        value: `start_date is ${start_date} and end_date is ${end_date}`,
+        msg: 'start_date is a date after end_date.',
+        param: 'start_date and end_date',
+        location: 'body'
+      }]
+    });
+    return;
+  }
+
+  let ledger;
+  if (frequency === 'monthly') {
+    ledger = ledgerMonthlyCalculation(start_date, end_date, weekly_rent); // Calls ledger calculation function for monthly frequency.
+  } else {
+    ledger = ledgerWeeklyCalculation(start_date, end_date, frequency, weekly_rent); // Calls monthly ledger calculation function for weekly/fornightly frequency.
+  }
+
+  res.status(200).json({ ledger }); // Returns success code with ledger.
+};
+
+module.exports = {
+  fetchLedger
+};</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#fetchLedger">fetchLedger</a></li><li><a href="global.html#ledgerMonthlyCalculation">ledgerMonthlyCalculation</a></li><li><a href="global.html#ledgerWeeklyCalculation">ledgerWeeklyCalculation</a></li><li><a href="global.html#validate">validate</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.7</a> on Sun Jun 20 2021 14:04:34 GMT+0530 (India Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
